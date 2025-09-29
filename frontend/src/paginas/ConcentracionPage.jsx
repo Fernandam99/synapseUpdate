@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import Card from '../componentes/Card';
 import ProgresoCard from '../componentes/ProgresoCard';
@@ -8,6 +8,11 @@ export default function ConcentracionPage({ user }) {
   const navigate = useNavigate();
 
   if (!user) return <Navigate to="/" replace />; // redirige al home si no hay user
+
+
+  useEffect(async() => {
+    await fetch('http://localhost:5000/concentracion', {
+  }, []);
 
   const tecnicas = [
     { nombre: 'Pomodoro', icono: <Clock size={40}/>, page: '/pomodoro' },

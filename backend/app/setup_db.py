@@ -7,14 +7,14 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pymysql
 from backend.run import create_app
 from app.models import db
-from .config import Config
+from app.config import Config
 
 # Configuración para conectar sin seleccionar base de datos
 # Cambien estos valores según su configuración local
 HOST = 'localhost'
 PORT = 3307
-USER = 'synapse_user'
-PASSWORD = 'password123'
+USER = 'root'
+PASSWORD = 'koal'
 DATABASE = 'synapse_db'
 
 def create_database():
