@@ -1,68 +1,64 @@
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-
 class ApiService {
-    constructor() {
-        this.baseURL = API_BASE_URL;
-    }
+  constructor(baseURL = "http://localhost:5000/api") {
+    this.baseURL = baseURL;
+  }
 
-    getAuthHeaders() {
-        const token = localStorage.getItem('authToken');
-        return {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` })
-        };
-    }
+  async request(endpoint, options = {}) {
+    const token = localStorage.getItem("token");
 
-    async request(endpoint, options = {}) {
-        const url = `${this.baseURL}${endpoint}`;
-        const config = {
-            headers: this.getAuthHeaders(),
-            ...options
-        };
+    const config = {
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }), // añade token si existe
+      },
+      ...options,
+    };
 
     try {
-        const response = await fetch(url, config);
-        const data = await response.json();
+      const response = await fetch(`${this.baseURL}${endpoint}`, config);
 
-        if (!response.ok) {
-            throw new Error(data.error || `HTTP error! status: ${response.status}`);
-        }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          `Error ${response.status}: ${errorData.message || response.statusText}`
+        );
+      }
 
-        return data;
+      return await response.json();
     } catch (error) {
-        console.error('API Request failed:', error);
-        throw error;
-        }
+      console.error("API Request failed:", error);
+      throw error;
     }
+  }
 
-    get(endpoint) {
-        return this.request(endpoint, { method: 'GET' });
-    }
+  get(endpoint) {
+    return this.request(endpoint, { method: "GET" });
+  }
 
-    post(endpoint, data) {
-        return this.request(endpoint, {
-        method: 'POST',
-        body: JSON.stringify(data)
-        });
-    }
+  post(endpoint, data) {
+    return this.request(endpoint, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
 
-    put(endpoint, data) {
-        return this.request(endpoint, {
-        method: 'PUT',
-        body: JSON.stringify(data)
-        });
-    }
+  put(endpoint, data) {
+    return this.request(endpoint, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
 
-    patch(endpoint, data) {
-        return this.request(endpoint, {
-        method: 'PATCH',
-        body: JSON.stringify(data)
-        });
-    }
+  patch(endpoint, data) {
+    return this.request(endpoint, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
 
-    delete(endpoint) {
-        return this.request(endpoint, { method: 'DELETE' });
-    }
+  delete(endpoint) {
+    return this.request(endpoint, { method: "DELETE" });
+  }
 }
 
 export default new ApiService();

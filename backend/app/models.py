@@ -53,8 +53,28 @@ class Usuario(db.Model):
             'activo': self.activo
         }
 
+class UsuarioSala(db.Model):
+    __tablename__ = 'usuariosala'
 
-# Modelo Sala
+    id_usuario = db.Column(db.String(36), db.ForeignKey('usuario.id_usuario'), primary_key=True)
+    id_sala = db.Column(db.String(36), db.ForeignKey('sala.id_sala'), primary_key=True)
+    fecha_union = db.Column(db.DateTime(6), default=datetime.utcnow, nullable=False)
+    rol_en_sala = db.Column(db.String(50), nullable=False)
+    activo = db.Column(db.Boolean, default=True)
+
+    # Relación inversa para acceder a la sala
+    sala = db.relationship('Sala', back_populates='usuarios_sala')
+
+    def to_dict(self):
+        return {
+            'id_usuario': self.id_usuario,
+            'id_sala': self.id_sala,
+            'fecha_union': self.fecha_union.isoformat(),
+            'rol_en_sala': self.rol_en_sala,
+            'activo': self.activo
+        }
+
+# En la clase Sala:
 class Sala(db.Model):
     __tablename__ = 'sala'
 
@@ -63,10 +83,12 @@ class Sala(db.Model):
     descripcion = db.Column(db.Text, nullable=True)
     fecha_creacion = db.Column(db.DateTime(6), default=datetime.utcnow, nullable=False)
     creador_id = db.Column(db.String(36), db.ForeignKey('usuario.id_usuario'), nullable=False)
-    max_participantes = db.Column(db.Integer, nullable=True)  # Aquí agregamos el campo
+    max_participantes = db.Column(db.Integer, nullable=True)
 
-    usuarios_sala = db.relationship('UsuarioSala', backref='sala_usuario', lazy=True)
+    usuarios_sala = db.relationship('UsuarioSala', back_populates='sala', lazy=True)
     sesiones_sala = db.relationship('SalaSesion', backref='sala_sesion_rel', lazy=True)
+    es_privada = db.Column(db.Boolean, default=False)
+    codigo_acceso = db.Column(db.String(6), nullable=True)
 
     def to_dict(self):
         return {
@@ -75,22 +97,9 @@ class Sala(db.Model):
             'descripcion': self.descripcion,
             'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None,
             'creador_id': self.creador_id,
-            'max_participantes': self.max_participantes  # Agregar este campo al dict
-        }
-
-# modelo sala
-class UsuarioSala(db.Model):
-    __tablename__ = 'usuariosala'
-
-    id_usuario = db.Column(db.String(36), db.ForeignKey('usuario.id_usuario'), primary_key=True)
-    id_sala = db.Column(db.String(36), db.ForeignKey('sala.id_sala'), primary_key=True)
-    fecha_union = db.Column(db.DateTime(6), default=datetime.utcnow, nullable=False)
-
-    def to_dict(self):
-        return {
-            'id_usuario': self.id_usuario,
-            'id_sala': self.id_sala,
-            'fecha_union': self.fecha_union.isoformat()
+            'max_participantes': self.max_participantes,
+            'es_privada': self.es_privada,
+            'codigo_acceso': self.codigo_acceso
         }
 
 
@@ -100,11 +109,17 @@ class Tarea(db.Model):
 
     id_tarea = db.Column(db.String(36), primary_key=True, default=generate_uuid)
     usuario_id = db.Column(db.String(36), db.ForeignKey('usuario.id_usuario'), nullable=False)
+    sala_id = db.Column(db.String(36), db.ForeignKey('sala.id_sala'), nullable=True)  # Relación con Sala
     titulo = db.Column(db.String(200), nullable=False)
     descripcion = db.Column(db.Text, nullable=True)
     fecha_creacion = db.Column(db.DateTime(6), default=datetime.utcnow, nullable=False)
     completada = db.Column(db.Boolean, default=False)
     estado = db.Column(db.String(20), nullable=False)  
+    fecha_vencimiento = db.Column(db.Date, nullable=True)
+    prioridad = db.Column(db.String(20), default='baja', nullable=False)
+    comentario = db.Column(db.Text, nullable=True)
+
+    sala = db.relationship('Sala', backref='tareas', lazy=True)
 
     def to_dict(self):
         return {
@@ -114,7 +129,11 @@ class Tarea(db.Model):
             'descripcion': self.descripcion,
             'fecha_creacion': self.fecha_creacion.isoformat(),
             'completada': self.completada,
-            'estado': self.estado
+            'estado': self.estado,
+            'fecha_vencimiento': self.fecha_vencimiento.isoformat() if self.fecha_vencimiento else None,
+            'prioridad': self.prioridad,
+            'comentario': self.comentario,
+            'sala_id': self.sala_id
         }
 
 # Modelo Tecnica
@@ -125,7 +144,7 @@ class Tecnica(db.Model):
     nombre = db.Column(db.String(100), nullable=False)
     descripcion = db.Column(db.Text, nullable=True)
     duracion_estimada = db.Column(db.Integer, nullable=True)
-    categoria = db.Column(db.String(50), nullable=True)  
+    categoria = db.Column(db.String(50), nullable=True)  # 👈 Agregado
 
     sesiones = db.relationship('Sesion', backref='tecnica_sesion', lazy=True)
 
@@ -151,6 +170,7 @@ class Sesion(db.Model):
     completada = db.Column(db.Boolean, default=False)
     duracion_real = db.Column(db.Integer, nullable=False)  
     estado = db.Column(db.String(20), nullable=False) 
+    es_grupal = db.Column(db.Boolean, default=False)
 
 
     def to_dict(self):
@@ -162,7 +182,8 @@ class Sesion(db.Model):
             'fecha_fin': self.fecha_fin.isoformat() if self.fecha_fin else None,
             'completada': self.completada,
             'duracion_real': self.duracion_real,
-            'estado': self.estado  
+            'estado': self.estado,
+            'es_grupal': self.es_grupal
         }
 
 # Modelo SalaSesion
@@ -228,12 +249,14 @@ class RecompensaUsuario(db.Model):
     id_usuario = db.Column(db.String(36), db.ForeignKey('usuario.id_usuario'), primary_key=True)
     id_recompensa = db.Column(db.String(36), db.ForeignKey('recompensa.id_recompensa'), primary_key=True)
     fecha_obtenida = db.Column(db.DateTime(6), default=datetime.utcnow, nullable=False)
+    consumida = db.Column(db.Boolean, default=False, nullable=False)
 
     def to_dict(self):
         return {
             'id_usuario': self.id_usuario,
             'id_recompensa': self.id_recompensa,
-            'fecha_obtenida': self.fecha_obtenida.isoformat()
+            'fecha_obtenida': self.fecha_obtenida.isoformat(),
+            'consumida': self.consumida 
         }
 
 # Modelo Progreso

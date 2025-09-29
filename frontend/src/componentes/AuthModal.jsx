@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FaEnvelope, FaLock, FaUser } from "react-icons/fa";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
 import ProgresoBar from "./ProgresoBar";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 
@@ -14,7 +15,7 @@ export default function AuthModal({
   const [isLogin, setIsLogin] = useState(defaultMode === "login");
   const [formData, setFormData] = useState({
     username: "",
-    email: "",
+    correo: "",
     password: "",
     confirmPassword: "",
   });
@@ -22,12 +23,12 @@ export default function AuthModal({
   const [flashMessage, setFlashMessage] = useState({ message: "", type: "" });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();
 
-  // Validación de contraseña mejorada: permite / y otros símbolos
   const validatePassword = (password) =>
     /^(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/.test(password);
 
-  const requiredFields = ["username", "email", "password", "confirmPassword"];
+  const requiredFields = ["username", "correo", "password", "confirmPassword"];
 
   const calculateProgress = () => {
     if (isLogin) return 0;
@@ -55,7 +56,7 @@ export default function AuthModal({
     if (!isOpen) {
       setFormData({
         username: "",
-        email: "",
+        correo: "",
         password: "",
         confirmPassword: "",
       });
@@ -79,7 +80,7 @@ export default function AuthModal({
     if (!formData.username && !isLogin)
       newErrors.username = "El nombre de usuario es requerido";
 
-    if (!formData.email) newErrors.email = "El correo es requerido";
+    if (!formData.correo) newErrors.correo = "El correo es requerido";
 
     if (!formData.password) {
       newErrors.password = "La contraseña es requerida";
@@ -112,21 +113,26 @@ export default function AuthModal({
     setLoading(true);
     try {
       if (isLogin) {
-        await onLogin(formData.email, formData.password);
+        await onLogin(formData.correo, formData.password);
         setFlashMessage({
           message: "Inicio de sesión exitoso",
           type: "success",
         });
+
+        navigate("/perfil");
       } else {
         await onRegister({
-          username: formData.username,
-          correo: formData.email,
+          Username: formData.username,
+          correo: formData.correo,
           password: formData.password,
         });
         setFlashMessage({
           message: "Cuenta creada con éxito",
           type: "success",
         });
+
+        navigate("/perfil");
+
       }
 
       onClose();
@@ -186,6 +192,7 @@ export default function AuthModal({
                   message: "Inicio de sesión con Google exitoso",
                   type: "success",
                 });
+                navigate("/perfil");
                 onClose();
               }}
               onError={() => {
@@ -230,15 +237,15 @@ export default function AuthModal({
           <div className="relative">
             <FaEnvelope className="absolute top-2.5 left-3 text-gray-400 text-sm" />
             <input
-              value={formData.email}
+              value={formData.correo}
               onChange={handleChange}
               type="email"
-              name="email"
+              name="correo"
               placeholder="Correo electrónico"
               className="w-full border pl-9 py-2.5 rounded-md text-sm focus:ring-2 focus:ring-purple-500"
             />
-            {errors.email && (
-              <p className="text-xs text-red-600 mt-1">{errors.email}</p>
+            {errors.correo && (
+              <p className="text-xs text-red-600 mt-1">{errors.correo}</p>
             )}
           </div>
 

@@ -1,8 +1,8 @@
 import ApiService from './api';
 
 export const authService = {
-  async login(email, password) {
-    const response = await ApiService.post('/auth/login', { email, password });
+  async login(correo, password) {
+    const response = await ApiService.post('/auth/login', { correo, password });
     if (response.access_token) {
       localStorage.setItem('authToken', response.access_token);
       localStorage.setItem('user', JSON.stringify(response.usuario));

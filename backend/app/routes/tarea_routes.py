@@ -34,43 +34,47 @@ def get_tareas():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@tarea_bp.route('/<string:tarea_id>', methods=['GET'])
+@tarea_bp.route('/<string:id_tarea>', methods=['GET'])
 @jwt_required()
-def get_tarea(tarea_id):
+def get_tarea(id_tarea):
     try:
         usuario_id = get_jwt_identity()
-        
-        tarea = Tarea.query.filter_by(tarea_id=tarea_id, usuario_id=usuario_id).first()
+
+        tarea = Tarea.query.filter_by(id_tarea=id_tarea, usuario_id=usuario_id).first()
         if not tarea:
             return jsonify({'error': 'Tarea no encontrada'}), 404
-        
+
         return jsonify(tarea.to_dict()), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-@tarea_bp.route('', methods=['POST'])
+    
+@tarea_bp.route('', methods=['POST'])  
 @jwt_required()
 def create_tarea():
     try:
         usuario_id = get_jwt_identity()
         data = request.get_json()
-        
+
+        print(f"usuario_id: {usuario_id}, sala_id: {data.get('sala_id')}")
+
         # Validar datos requeridos
         if not data.get('titulo'):
             return jsonify({'error': 'El título es requerido'}), 400
-        
-        # Validar sala_id si se proporciona
+
         sala_id = data.get('sala_id')
         if sala_id:
             # Verificar que el usuario pertenece a la sala
             usuario_sala = UsuarioSala.query.filter_by(
-                usuario_id=usuario_id,
-                sala_id=sala_id,
+                id_usuario=usuario_id,
+                id_sala=sala_id,
                 activo=True
             ).first()
+
+            print(f"usuario_sala: {usuario_sala}")  # Para ver si la relación existe
+
             if not usuario_sala:
                 return jsonify({'error': 'No perteneces a esta sala'}), 403
-        
+
         # Parsear fecha de vencimiento si se proporciona
         fecha_vencimiento = None
         if data.get('fecha_vencimiento'):
@@ -78,7 +82,7 @@ def create_tarea():
                 fecha_vencimiento = datetime.strptime(data['fecha_vencimiento'], '%Y-%m-%d').date()
             except ValueError:
                 return jsonify({'error': 'Formato de fecha inválido (YYYY-MM-DD)'}), 400
-        
+
         # Crear nueva tarea
         nueva_tarea = Tarea(
             usuario_id=usuario_id,
@@ -90,28 +94,29 @@ def create_tarea():
             estado=data.get('estado', 'Pendiente'),
             comentario=data.get('comentario')
         )
-        
+
         db.session.add(nueva_tarea)
         db.session.commit()
-        
+
         return jsonify(nueva_tarea.to_dict()), 201
-        
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@tarea_bp.route('/<string:tarea_id>', methods=['PUT'])
+@tarea_bp.route('/<string:id_tarea>', methods=['PUT'])
 @jwt_required()
-def update_tarea(tarea_id):
+def update_tarea(id_tarea):
     try:
         usuario_id = get_jwt_identity()
-        
-        tarea = Tarea.query.filter_by(tarea_id=tarea_id, usuario_id=usuario_id).first()
+
+        # Usamos 'id_usuario' en lugar de 'usuario_id'
+        tarea = Tarea.query.filter_by(id_tarea=id_tarea, usuario_id=usuario_id).first()
         if not tarea:
             return jsonify({'error': 'Tarea no encontrada'}), 404
-        
+
         data = request.get_json()
-        
+
         # Actualizar campos permitidos
         if 'titulo' in data:
             tarea.titulo = data['titulo']
@@ -123,7 +128,7 @@ def update_tarea(tarea_id):
             tarea.estado = data['estado']
         if 'comentario' in data:
             tarea.comentario = data['comentario']
-        
+
         # Actualizar fecha de vencimiento
         if 'fecha_vencimiento' in data:
             if data['fecha_vencimiento']:
@@ -133,75 +138,49 @@ def update_tarea(tarea_id):
                     return jsonify({'error': 'Formato de fecha inválido (YYYY-MM-DD)'}), 400
             else:
                 tarea.fecha_vencimiento = None
-        
+
         # Validar cambio de sala
         if 'sala_id' in data:
             nueva_sala_id = data['sala_id']
             if nueva_sala_id:
                 # Verificar que el usuario pertenece a la nueva sala
                 usuario_sala = UsuarioSala.query.filter_by(
-                    usuario_id=usuario_id,
-                    sala_id=nueva_sala_id,
+                    id_usuario=usuario_id,  # Cambié 'usuario_id' por 'id_usuario'
+                    id_sala=nueva_sala_id,
                     activo=True
                 ).first()
                 if not usuario_sala:
                     return jsonify({'error': 'No perteneces a esta sala'}), 403
             tarea.sala_id = nueva_sala_id
-        
+
         db.session.commit()
-        
+
         return jsonify(tarea.to_dict()), 200
-        
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@tarea_bp.route('/<string:tarea_id>', methods=['DELETE'])
+@tarea_bp.route('/<string:id_tarea>', methods=['DELETE'])
 @jwt_required()
-def delete_tarea(tarea_id):
+def delete_tarea(id_tarea):
     try:
         usuario_id = get_jwt_identity()
-        
-        tarea = Tarea.query.filter_by(tarea_id=tarea_id, usuario_id=usuario_id).first()
+
+        tarea = Tarea.query.filter_by(id_tarea=id_tarea, usuario_id=usuario_id).first()  # Cambié 'tarea_id' a 'id_tarea'
         if not tarea:
             return jsonify({'error': 'Tarea no encontrada'}), 404
-        
+
         db.session.delete(tarea)
         db.session.commit()
-        
+
         return jsonify({'message': 'Tarea eliminada exitosamente'}), 200
-        
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@tarea_bp.route('/<string:tarea_id>/completar', methods=['PATCH'])
-@jwt_required()
-def completar_tarea(tarea_id):
-    try:
-        usuario_id = get_jwt_identity()
-        
-        tarea = Tarea.query.filter_by(tarea_id=tarea_id, usuario_id=usuario_id).first()
-        if not tarea:
-            return jsonify({'error': 'Tarea no encontrada'}), 404
-        
-        tarea.estado = 'Completado'
-        
-        # Agregar comentario de finalización si se proporciona
-        data = request.get_json() or {}
-        if data.get('comentario'):
-            tarea.comentario = data['comentario']
-        
-        db.session.commit()
-        
-        return jsonify({
-            'message': 'Tarea marcada como completada',
-            'tarea': tarea.to_dict()
-        }), 200
-        
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+
 
 @tarea_bp.route('/estadisticas', methods=['GET'])
 @jwt_required()
@@ -243,26 +222,25 @@ def get_estadisticas_tareas():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 @tarea_bp.route('/sala/<string:sala_id>', methods=['GET'])
 @jwt_required()
 def get_tareas_sala(sala_id):
     try:
         usuario_id = get_jwt_identity()
-        
+
         # Verificar que el usuario pertenece a la sala
         usuario_sala = UsuarioSala.query.filter_by(
-            usuario_id=usuario_id,
-            sala_id=sala_id,
+            id_usuario=usuario_id,  # Cambié 'usuario_id' a 'id_usuario'
+            id_sala=sala_id,
             activo=True
         ).first()
-        
+
         if not usuario_sala:
             return jsonify({'error': 'No tienes acceso a esta sala'}), 403
-        
+
         # Obtener tareas de la sala (de todos los usuarios)
         tareas = Tarea.query.filter_by(sala_id=sala_id).order_by(Tarea.fecha_creacion.desc()).all()
-        
+
         # Incluir información del usuario para cada tarea
         tareas_con_usuario = []
         for tarea in tareas:
@@ -274,8 +252,8 @@ def get_tareas_sala(sala_id):
                 'correo': usuario.correo
             } if usuario else None
             tareas_con_usuario.append(tarea_dict)
-        
+
         return jsonify(tareas_con_usuario), 200
-        
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500

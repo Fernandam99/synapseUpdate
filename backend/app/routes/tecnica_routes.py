@@ -18,20 +18,23 @@ def get_tecnicas():
         return jsonify([tecnica.to_dict() for tecnica in tecnicas]), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 @tecnica_bp.route('/populares', methods=['GET'])
 @jwt_required()
 def get_tecnicas_populares():
     try:
         # Obtener técnicas más usadas (basado en número de sesiones)
-        from models import Sesion
+        from app.models import Sesion
         
         tecnicas_populares = db.session.query(
             Tecnica, 
-            db.func.count(Sesion.sesion_id).label('total_sesiones')
-        ).outerjoin(Sesion).group_by(Tecnica.tecnica_id).order_by(
+            db.func.count(Sesion.id_sesion).label('total_sesiones')  # Corregir aquí
+        ).outerjoin(Sesion).group_by(Tecnica.id_tecnica).order_by(
             db.desc('total_sesiones')
         ).limit(10).all()
+        
+        # Si no hay técnicas populares, se devuelve un mensaje adecuado
+        if not tecnicas_populares:
+            return jsonify({'message': 'No hay técnicas populares en este momento'}), 200
         
         result = []
         for tecnica, total_sesiones in tecnicas_populares:
@@ -41,7 +44,8 @@ def get_tecnicas_populares():
         
         return jsonify(result), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 500500
+        return jsonify({'error': str(e)}), 500
+
 
 @tecnica_bp.route('/<string:tecnica_id>', methods=['GET'])
 @jwt_required()

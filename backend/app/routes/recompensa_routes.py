@@ -148,14 +148,45 @@ def get_mis_recompensas():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# Definir la función calcular_progreso_requisitos
+def calcular_progreso_requisitos(requisitos, stats_usuario):
+    """Calcula el progreso del usuario hacia los requisitos de una recompensa"""
+    progreso = {}
+    try:
+        for key, valor_requerido in requisitos.items():
+            if key in stats_usuario:
+                actual = stats_usuario[key]
+                porcentaje = min(100, (actual / valor_requerido) * 100) if valor_requerido > 0 else 100
+                progreso[key] = {
+                    'actual': actual,
+                    'requerido': valor_requerido,
+                    'porcentaje': round(porcentaje, 2)
+                }
+        return progreso
+    except Exception as e:
+        return {}
+
+# Asegúrate de que ambas funciones estén definidas o importadas
+def evaluar_requisitos(requisitos, stats_usuario):
+    """Evalúa si el usuario cumple con los requisitos para una recompensa"""
+    try:
+        for key, valor_requerido in requisitos.items():
+            if key in stats_usuario:
+                if stats_usuario[key] < valor_requerido:
+                    return False
+        return True
+    except Exception as e:
+        return False
+
+# Código de la ruta GET /disponibles
 @recompensa_bp.route('/disponibles', methods=['GET'])
 @jwt_required()
 def get_recompensas_disponibles():
     try:
         id_usuario = get_jwt_identity()
-        
+
         # Obtener estadísticas del usuario para evaluar requisitos
-        from models import Sesion, Tarea, Progreso
+        from app.models import Sesion, Tarea, Progreso
         
         # Sesiones completadas
         sesiones_completadas = Sesion.query.filter_by(
@@ -165,26 +196,26 @@ def get_recompensas_disponibles():
         
         # Tareas completadas
         tareas_completadas = Tarea.query.filter_by(
-            id_usuario=id_usuario,
+            usuario_id=id_usuario,  # Corregido el campo
             estado='Completado'
         ).count()
         
         # Tiempo total de estudio
         tiempo_total = db.session.query(
             db.func.sum(Sesion.duracion_real)
-        ).filter_by(id_usuario=id_usuario, estado='Completado').scalar() or 0
+        ).filter_by(usuario_id=id_usuario, estado='Completado').scalar() or 0
         
         # Días consecutivos (simplificado)
-        dias_consecutivos = Progreso.query.filter_by(id_usuario=id_usuario).count()
+        dias_consecutivos = Progreso.query.filter_by(usuario_id=id_usuario).count()
         
         # Recompensas ya obtenidas
-        recompensas_obtenidas = db.session.query(RecompensaUsuario.recompensa_id).filter_by(
+        recompensas_obtenidas = db.session.query(RecompensaUsuario.id_recompensa).filter_by(
             id_usuario=id_usuario
         ).subquery()
         
         # Recompensas disponibles (no obtenidas)
         recompensas_disponibles = Recompensa.query.filter(
-            ~Recompensa.recompensa_id.in_(recompensas_obtenidas)
+            ~Recompensa.id_recompensa.in_(recompensas_obtenidas)
         ).all()
         
         # Evaluar cuáles puede obtener
@@ -198,9 +229,9 @@ def get_recompensas_disponibles():
         
         for recompensa in recompensas_disponibles:
             recompensa_dict = recompensa.to_dict()
-            puede_obtener = evaluar_requisitos(recompensa.requisitos, stats_usuario)
+            puede_obtener = evaluar_requisitos(recompensa.requisitos, stats_usuario)  # type: ignore
             recompensa_dict['puede_obtener'] = puede_obtener
-            recompensa_dict['progreso_requisitos'] = calcular_progreso_requisitos(recompensa.requisitos, stats_usuario)
+            recompensa_dict['progreso_requisitos'] = calcular_progreso_requisitos(recompensa.requisitos, stats_usuario) # type: ignore
             resultado.append(recompensa_dict)
         
         return jsonify(resultado), 200
@@ -208,59 +239,47 @@ def get_recompensas_disponibles():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@recompensa_bp.route('/otorgar', methods=['POST'])
+    
+@recompensa_bp.route('/consumir', methods=['POST'])
 @jwt_required()
-def otorgar_recompensa():
+def consumir_recompensa():
     try:
         data = request.get_json()
         id_usuario = get_jwt_identity()
-        
-        recompensa_id = data.get('recompensa_id')
-        if not recompensa_id:
+
+        id_recompensa = data.get('recompensa_id')
+        if not id_recompensa:
             return jsonify({'error': 'ID de recompensa es requerido'}), 400
-        
-        recompensa = Recompensa.query.get(recompensa_id)
-        if not recompensa:
-            return jsonify({'error': 'Recompensa no encontrada'}), 404
-        
-        # Verificar si ya tiene esta recompensa
-        ya_tiene = RecompensaUsuario.query.filter_by(
+
+        # Buscar si el usuario tiene esa recompensa
+        recompensa_usuario = RecompensaUsuario.query.filter_by(
             id_usuario=id_usuario,
-            recompensa_id=recompensa_id
+            id_recompensa=id_recompensa
         ).first()
-        
-        if ya_tiene:
-            return jsonify({'error': 'Ya tienes esta recompensa'}), 400
-        
-        # TODO: Aquí deberías evaluar si cumple con los requisitos
-        # Por simplicidad, asumimos que sí cumple
-        
-        # Otorgar recompensa
-        nueva_recompensa_usuario = RecompensaUsuario(
-            id_usuario=id_usuario,
-            recompensa_id=recompensa_id
-        )
-        
-        db.session.add(nueva_recompensa_usuario)
+
+        if not recompensa_usuario:
+            return jsonify({'error': 'No tienes esta recompensa o ya fue consumida'}), 404
+
+        # marcar como consumida
+        recompensa_usuario.consumida = True
         db.session.commit()
-        
-        return jsonify({
-            'message': 'Recompensa otorgada exitosamente',
-            'recompensa': recompensa.to_dict()
-        }), 201
-        
+
+        return jsonify({'message': 'Recompensa consumida correctamente'}), 200
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@recompensa_bp.route('/consumir/<int:recompensa_id_usuario>', methods=['PATCH'])
+
+
+@recompensa_bp.route('/consumir/<string:recompensa_id_usuario>', methods=['PATCH'])
 @jwt_required()
-def consumir_recompensa(recompensa_id_usuario):
+def consumir_recompensa_patch(recompensa_id_usuario):
     try:
         id_usuario = get_jwt_identity()
         
         recompensa_usuario = RecompensaUsuario.query.filter_by(
-            id=recompensa_id_usuario,  # Corregido el nombre del campo
+            id=recompensa_id_usuario,  # Usando el nombre correcto para el parámetro
             id_usuario=id_usuario
         ).first()
         
@@ -278,32 +297,3 @@ def consumir_recompensa(recompensa_id_usuario):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
-
-def evaluar_requisitos(requisitos, stats_usuario):
-    """Evalúa si el usuario cumple con los requisitos para una recompensa"""
-    try:
-        for key, valor_requerido in requisitos.items():
-            if key in stats_usuario:
-                if stats_usuario[key] < valor_requerido:
-                    return False
-        return True
-    except Exception as e:
-        return False
-
-def calcular_progreso_requisitos(requisitos, stats_usuario):
-    """Calcula el progreso del usuario hacia los requisitos"""
-    progreso = {}
-    try:
-        for key, valor_requerido in requisitos.items():
-            if key in stats_usuario:
-                actual = stats_usuario[key]
-                porcentaje = min(100, (actual / valor_requerido) * 100) if valor_requerido > 0 else 100
-                progreso[key] = {
-                    'actual': actual,
-                    'requerido': valor_requerido,
-                    'porcentaje': round(porcentaje, 2)
-                }
-        return progreso
-    except Exception as e:
-        return {}
-

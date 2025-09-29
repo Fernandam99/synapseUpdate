@@ -70,17 +70,22 @@ def get_sesion(sesion_id):
     try:
         usuario_id = get_jwt_identity()
         
-        sesion = Sesion.query.filter_by(sesion_id=sesion_id, usuario_id=usuario_id).first()
+        # Buscar la sesión con el id proporcionado y el usuario autenticado
+        sesion = Sesion.query.filter_by(id_sesion=sesion_id, usuario_id=usuario_id).first()
+        
         if not sesion:
             return jsonify({'error': 'Sesión no encontrada'}), 404
         
+        # Convertir la sesión a diccionario
         sesion_dict = sesion.to_dict()
         
-        # Agregar información adicional
+        # Agregar información de la técnica
         if sesion.tecnica_sesion:
             sesion_dict['tecnica'] = sesion.tecnica_sesion.to_dict()
         
-        sesion_dict['parametros'] = [param.to_dict() for param in sesion.parametros]
+        # Obtener los parámetros asociados a la sesión
+        parametros = SesionTecnicaParam.query.filter_by(id_sesion=sesion.id_sesion).all()
+        sesion_dict['parametros'] = [param.to_dict() for param in parametros]
         
         # Si es grupal, agregar información de salas
         if sesion.es_grupal:
@@ -101,16 +106,17 @@ def create_sesion():
         usuario_id = get_jwt_identity()
         data = request.get_json()
         
-        # Validar datos requeridos
-        if not data.get('tecnica_id'):
-            return jsonify({'error': 'ID de técnica es requerido'}), 400
+        # Verificar que el 'tecnica_id' es válido
+        print(f"Tecnica ID recibido: {data['tecnica_id']}")
         
-        # Verificar que la técnica existe
-        tecnica = Tecnica.query.get(data['tecnica_id'])
+        # Consultar la técnica en la base de datos
+        tecnica = Tecnica.query.filter_by(id_tecnica=data['tecnica_id']).first()
         if not tecnica:
-            return jsonify({'error': 'Técnica no encontrada'}), 404
+            return jsonify({'error': f'Técnica con id {data["tecnica_id"]} no encontrada'}), 404
         
-        # Parsear fecha de inicio
+        print(f"Técnica encontrada: {tecnica.nombre}")
+        
+        # Parsear fechas
         inicio = datetime.utcnow()
         if data.get('inicio'):
             try:
@@ -118,7 +124,6 @@ def create_sesion():
             except ValueError:
                 return jsonify({'error': 'Formato de fecha de inicio inválido'}), 400
         
-        # Parsear fecha de fin si se proporciona
         fin = None
         if data.get('fin'):
             try:
@@ -127,21 +132,15 @@ def create_sesion():
                     return jsonify({'error': 'La fecha de fin debe ser posterior al inicio'}), 400
             except ValueError:
                 return jsonify({'error': 'Formato de fecha de fin inválido'}), 400
-        
-        # Calcular duración real si hay fecha de fin
-        duracion_real = None
-        if fin:
-            duracion_real = int((fin - inicio).total_seconds() / 60)  # minutos
-        
+
         # Crear nueva sesión
         nueva_sesion = Sesion(
             usuario_id=usuario_id,
             tecnica_id=data['tecnica_id'],
-            inicio=inicio,
-            fin=fin,
-            duracion_real=duracion_real,
-            es_grupal=data.get('es_grupal', False),
-            estado=data.get('estado', 'Completado')
+            fecha_inicio=inicio,
+            fecha_fin=fin,
+            estado=data.get('estado', 'EnEjecucion'),
+            duracion_real=0  # Por ahora 0, puedes actualizarlo después
         )
         
         db.session.add(nueva_sesion)
@@ -152,33 +151,31 @@ def create_sesion():
         for param in parametros:
             if param.get('codigo') and param.get('cantidad'):
                 sesion_param = SesionTecnicaParam(
-                    sesion_id=nueva_sesion.sesion_id,
-                    codigo=param['codigo'],
-                    cantidad=str(param['cantidad'])
+                    id_sesion=nueva_sesion.id_sesion,
+                    parametro=param['codigo'],
+                    valor=str(param['cantidad'])
                 )
                 db.session.add(sesion_param)
         
-        # Si es sesión grupal, asociar con salas
+        # Asociar con salas si es una sesión grupal
         if nueva_sesion.es_grupal and data.get('salas_ids'):
             for sala_id in data['salas_ids']:
-                # Verificar que el usuario pertenece a la sala
                 usuario_sala = UsuarioSala.query.filter_by(
                     usuario_id=usuario_id,
                     sala_id=sala_id,
                     activo=True
                 ).first()
-                
                 if usuario_sala:
                     sala_sesion = SalaSesion(
-                        sesion_id=nueva_sesion.sesion_id,
-                        sala_id=sala_id
+                        id_sesion=nueva_sesion.id_sesion,
+                        id_sala=sala_id
                     )
                     db.session.add(sala_sesion)
         
         db.session.commit()
         
         return jsonify(nueva_sesion.to_dict()), 201
-        
+    
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
@@ -189,78 +186,84 @@ def update_sesion(sesion_id):
     try:
         usuario_id = get_jwt_identity()
         
-        sesion = Sesion.query.filter_by(sesion_id=sesion_id, usuario_id=usuario_id).first()
+        # Buscar la sesión con el id proporcionado y el usuario autenticado
+        sesion = Sesion.query.filter_by(id_sesion=sesion_id, usuario_id=usuario_id).first()
         if not sesion:
             return jsonify({'error': 'Sesión no encontrada'}), 404
         
+        # Obtener los datos de la solicitud
         data = request.get_json()
-        
+
         # Actualizar campos permitidos
         if 'estado' in data and data['estado'] in ['EnEjecucion', 'Completado', 'Cancelado', 'EnPausa']:
             sesion.estado = data['estado']
         
-        if 'fin' in data:
-            if data['fin']:
+        if 'fecha_fin' in data:
+            if data['fecha_fin']:
                 try:
-                    fin = datetime.fromisoformat(data['fin'].replace('Z', '+00:00'))
-                    if fin <= sesion.inicio:
+                    fecha_fin = datetime.fromisoformat(data['fecha_fin'].replace('Z', '+00:00'))
+                    if fecha_fin <= sesion.fecha_inicio:
                         return jsonify({'error': 'La fecha de fin debe ser posterior al inicio'}), 400
-                    sesion.fin = fin
-                    sesion.duracion_real = int((fin - sesion.inicio).total_seconds() / 60)
+                    sesion.fecha_fin = fecha_fin
+                    # Calcular duración si hay fecha de fin
+                    sesion.duracion_real = int((fecha_fin - sesion.fecha_inicio).total_seconds() / 60)
                 except ValueError:
                     return jsonify({'error': 'Formato de fecha de fin inválido'}), 400
             else:
-                sesion.fin = None
-                sesion.duracion_real = None
+                sesion.fecha_fin = None
+                sesion.duracion_real = 0  # Si no hay fecha_fin, establecer duracion_real a 0
         
         # Actualizar parámetros si se proporcionan
         if 'parametros' in data:
             # Eliminar parámetros existentes
-            SesionTecnicaParam.query.filter_by(sesion_id=sesion_id).delete()
+            SesionTecnicaParam.query.filter_by(id_sesion=sesion_id).delete()
             
             # Agregar nuevos parámetros
             for param in data['parametros']:
                 if param.get('codigo') and param.get('cantidad'):
                     sesion_param = SesionTecnicaParam(
-                        sesion_id=sesion_id,
-                        codigo=param['codigo'],
-                        cantidad=str(param['cantidad'])
+                        id_sesion=sesion_id,
+                        parametro=param['codigo'],
+                        valor=str(param['cantidad'])
                     )
                     db.session.add(sesion_param)
         
+        # Confirmar cambios en la base de datos
         db.session.commit()
-        
+
         return jsonify(sesion.to_dict()), 200
         
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@sesion_bp.route('/<string:sesion_id>', methods=['DELETE'])
+@sesion_bp.route('/<string:id_sesion>', methods=['DELETE'])
 @jwt_required()
-def delete_sesion(sesion_id):
+def delete_sesion(id_sesion):
     try:
         usuario_id = get_jwt_identity()
-        
-        sesion = Sesion.query.filter_by(sesion_id=sesion_id, usuario_id=usuario_id).first()
+
+        # Buscar la sesión por id_sesion y el usuario_id
+        sesion = Sesion.query.filter_by(id_sesion=id_sesion, usuario_id=usuario_id).first()
         if not sesion:
             return jsonify({'error': 'Sesión no encontrada'}), 404
-        
-        # Eliminar parámetros asociados
-        SesionTecnicaParam.query.filter_by(sesion_id=sesion_id).delete()
-        
+
+        # Eliminar parámetros asociados a la sesión
+        SesionTecnicaParam.query.filter_by(id_sesion=id_sesion).delete()
+
         # Eliminar asociaciones con salas
-        SalaSesion.query.filter_by(sesion_id=sesion_id).delete()
-        
+        SalaSesion.query.filter_by(id_sesion=id_sesion).delete()
+
         # Eliminar la sesión
         db.session.delete(sesion)
         db.session.commit()
-        
+
         return jsonify({'message': 'Sesión eliminada exitosamente'}), 200
-        
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
 
 @sesion_bp.route('/iniciar', methods=['POST'])
 @jwt_required()
@@ -312,29 +315,36 @@ def iniciar_sesion():
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@sesion_bp.route('/<string:sesion_id>/finalizar', methods=['PATCH'])
+@sesion_bp.route('/<string:id_sesion>/finalizar', methods=['PATCH'])
 @jwt_required()
-def finalizar_sesion(sesion_id):
+def finalizar_sesion(id_sesion):
     try:
+        # Obtener el ID del usuario a partir del JWT
         usuario_id = get_jwt_identity()
         
+        # Buscar la sesión en la base de datos con el id_sesion y usuario_id
         sesion = Sesion.query.filter_by(
-            sesion_id=sesion_id, 
+            id_sesion=id_sesion,  # Usar 'id_sesion' en lugar de 'sesion_id'
             usuario_id=usuario_id,
             estado='EnEjecucion'
         ).first()
         
+        # Si no se encuentra la sesión, devolver un error
         if not sesion:
             return jsonify({'error': 'Sesión en ejecución no encontrada'}), 404
         
-        # Finalizar sesión
+        # Finalizar la sesión
         ahora = datetime.utcnow()
-        sesion.fin = ahora
-        sesion.duracion_real = int((ahora - sesion.inicio).total_seconds() / 60)
-        sesion.estado = 'Completado'
         
+        # Calcular la duración real de la sesión
+        sesion.fecha_fin = ahora  # Asegúrate de que 'fecha_fin' es la columna correcta
+        sesion.duracion_real = int((ahora - sesion.fecha_inicio).total_seconds() / 60)  # Duración en minutos
+        sesion.estado = 'Completado'  # Actualizar el estado de la sesión
+        
+        # Guardar los cambios en la base de datos
         db.session.commit()
         
+        # Respuesta de éxito con los datos de la sesión
         return jsonify({
             'message': 'Sesión finalizada exitosamente',
             'sesion': sesion.to_dict()
@@ -342,6 +352,7 @@ def finalizar_sesion(sesion_id):
         
     except Exception as e:
         db.session.rollback()
+        # Si ocurre un error, devolverlo
         return jsonify({'error': str(e)}), 500
 
 @sesion_bp.route('/estadisticas', methods=['GET'])
@@ -362,11 +373,11 @@ def get_estadisticas_sesiones():
         # Sesiones por técnica
         sesiones_por_tecnica = db.session.query(
             Tecnica.nombre,
-            db.func.count(Sesion.sesion_id).label('total'),
+            db.func.count(Sesion.id_sesion).label('total'),  # Aquí cambiamos 'sesion_id' por 'id_sesion'
             db.func.sum(Sesion.duracion_real).label('tiempo_total')
         ).join(Sesion).filter(
             Sesion.usuario_id == usuario_id
-        ).group_by(Tecnica.tecnica_id).all()
+        ).group_by(Tecnica.id_tecnica).all()
         
         # Promedio de duración por sesión
         promedio_duracion = db.session.query(
