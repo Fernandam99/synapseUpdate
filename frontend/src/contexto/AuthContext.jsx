@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import api from "../services/api"; // asumo que es un axios instance
 
+
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {

@@ -33,10 +33,15 @@ export default function SynapseApp() {
 
   // Redirigir al perfil solo si está en "/"
   useEffect(() => {
-    if (user && location.pathname === "/") {
-      navigate("/perfil");
+    const isAtRoot = location.pathname === "/";
+    const hasJustLoggedIn = user && location.state?.fromLogin;
+
+    if (user && isAtRoot && !hasJustLoggedIn) {
+      console.log("Redirigiendo desde / a /perfil?");
+      navigate("/perfil", { replace: true });
     }
-  }, [user, location.pathname, navigate]);
+  }, [user, location, navigate]);
+
 
   const onAuthClick = (mode = "login") => {
     setAuthModal({ open: true, mode });
@@ -87,7 +92,7 @@ export default function SynapseApp() {
             }
           />
           <Route
-            path="/tareas"
+            path="/tarea"
             element={
               <PrivateRoute user={user}>
                 <TareasPage />

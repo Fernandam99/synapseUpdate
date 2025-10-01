@@ -4,8 +4,9 @@ import { Home, Target, CheckCircle, User, Users, Menu, X } from "lucide-react";
 import isotipo from "../static/IMG/isotipo.png";
 
 export default function Navbar({ user, onAuthClick, onLogout }) {
+  
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-
+  console.log("Navbar user:", user);
   const navItems = [
     { path: "/", label: "Home", icon: <Home size={18} />, requiresAuth: false },
     { path: "/pomodoro", label: "Pomodoro", icon: <Target size={18} />, requiresAuth: true },
@@ -17,9 +18,10 @@ export default function Navbar({ user, onAuthClick, onLogout }) {
   ];
 
   const handleClick = (e, item) => {
+    console.log("CLICK NAV:", item.path, "user:", user);
     if (item.requiresAuth && !user) {
-      e.preventDefault(); // bloquea navegación
-      onAuthClick("login"); // abre modal
+      e.preventDefault();
+      onAuthClick("login");
     }
     setIsMenuOpen(false);
   };

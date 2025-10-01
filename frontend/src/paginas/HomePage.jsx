@@ -54,7 +54,7 @@ const HomePage = ({ user, onAuthClick }) => {
       nombre: 'Sesiones Grupales',
       descripcion: 'Conéctate con otros usuarios en tiempo real.',
       categoria: 'social',
-      ruta: '/sesiones',
+      ruta: '/sesion',
       requiresAuth: true,
       icon: <Users size={40} className="text-[#3b82f6]" />,
     },

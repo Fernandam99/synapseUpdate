@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { FaEnvelope, FaLock, FaUser } from "react-icons/fa";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-import ProgresoBar from "./ProgresoBar";
-import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
+import ProgresoBar from "./ProgresoBar"; // Asegúrate de que este componente existe y no tiene errores
 
 export default function AuthModal({
   isOpen,
@@ -12,97 +10,82 @@ export default function AuthModal({
   onLogin,
   onRegister,
 }) {
-  const [isLogin, setIsLogin] = useState(defaultMode === "login");
+  const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     username: "",
     correo: "",
     password: "",
     confirmPassword: "",
   });
+
   const [errors, setErrors] = useState({});
-  const [flashMessage, setFlashMessage] = useState({ message: "", type: "" });
-  const [loading, setLoading] = useState(false);
+  const [isLogin, setIsLogin] = useState(defaultMode === "login");
   const [showPassword, setShowPassword] = useState(false);
-  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [flashMessage, setFlashMessage] = useState({ message: "", type: "" });
 
-  const validatePassword = (password) =>
-    /^(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/.test(password);
-
-  const requiredFields = ["username", "correo", "password", "confirmPassword"];
-
-  const calculateProgress = () => {
-    if (isLogin) return 0;
-    let validCount = 0;
-    requiredFields.forEach((field) => {
-      if (formData[field]) {
-        if (field === "password" && !validatePassword(formData.password))
-          return;
-        if (
-          field === "confirmPassword" &&
-          formData.confirmPassword !== formData.password
-        )
-          return;
-        validCount++;
-      }
-    });
-    return Math.round((validCount / requiredFields.length) * 100);
-  };
-
+  // Debug: para ver el modo y estado inicial
   useEffect(() => {
+    console.log("🔁 useEffect → defaultMode:", defaultMode);
     setIsLogin(defaultMode === "login");
+    setFormData({
+      username: "",
+      correo: "",
+      password: "",
+      confirmPassword: "",
+    });
+    setErrors({});
+    setFlashMessage({ message: "", type: "" });
   }, [defaultMode, isOpen]);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setFormData({
-        username: "",
-        correo: "",
-        password: "",
-        confirmPassword: "",
-      });
-      setErrors({});
-      setFlashMessage({ message: "", type: "" });
-      setLoading(false);
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    setErrors((prev) => ({ ...prev, [name]: "" }));
-  };
-
   const validateForm = () => {
-    let newErrors = {};
-
-    if (!formData.username && !isLogin)
-      newErrors.username = "El nombre de usuario es requerido";
-
-    if (!formData.correo) newErrors.correo = "El correo es requerido";
-
-    if (!formData.password) {
-      newErrors.password = "La contraseña es requerida";
-    } else if (!validatePassword(formData.password)) {
-      newErrors.password =
-        "Debe tener al menos 8 caracteres, una mayúscula, un número y un caracter especial";
-    }
+    const newErrors = {};
+    if (!formData.correo.trim()) newErrors.correo = "Correo requerido";
+    if (!formData.password.trim()) newErrors.password = "Contraseña requerida";
 
     if (!isLogin) {
-      if (!formData.confirmPassword)
-        newErrors.confirmPassword = "Confirma la contraseña";
-      else if (formData.password !== formData.confirmPassword)
+      if (!formData.username.trim()) {
+        newErrors.username = "Nombre de usuario requerido";
+      }
+      if (!formData.confirmPassword.trim()) {
+        newErrors.confirmPassword = "Confirmación requerida";
+      } else if (formData.password !== formData.confirmPassword) {
         newErrors.confirmPassword = "Las contraseñas no coinciden";
+      }
     }
 
     setErrors(newErrors);
+    console.log("✅ validateForm → errores:", newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const calculateProgress = () => {
+    const total = isLogin ? 2 : 4;
+    let filled = 0;
+
+    if (formData.correo) filled++;
+    if (formData.password) filled++;
+    if (!isLogin) {
+      if (formData.username) filled++;
+      if (formData.confirmPassword) filled++;
+    }
+
+    return Math.round((filled / total) * 100);
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    console.log(`✍️ handleChange → ${name}:`, value);
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("📤 handleSubmit → enviado");
+
     if (!validateForm()) {
+      console.warn("⚠️ Formulario inválido");
       setFlashMessage({
         message: "Por favor corrige los errores",
         type: "error",
@@ -111,32 +94,40 @@ export default function AuthModal({
     }
 
     setLoading(true);
+
     try {
+      const { correo, password, username } = formData;
+      console.log("🔐 handleSubmit → Datos enviados:", {
+        correo,
+        password,
+        username,
+        modo: isLogin ? "login" : "register",
+      });
+
       if (isLogin) {
-        await onLogin(formData.correo, formData.password);
+        await onLogin(correo, password);
+        console.log("✅ Inicio de sesión exitoso");
         setFlashMessage({
           message: "Inicio de sesión exitoso",
           type: "success",
         });
-
-        navigate("/perfil");
       } else {
-        await onRegister({
-          Username: formData.username,
-          correo: formData.correo,
-          password: formData.password,
-        });
+        await onRegister({ correo, password, username });
+        console.log("🟢 Registro exitoso");
         setFlashMessage({
           message: "Cuenta creada con éxito",
           type: "success",
         });
 
-        navigate("/perfil");
-
+        console.log("🟢 Registro exitoso, haciendo login automático");
+        await onLogin(correo, password);
       }
 
+      console.log("🚀 Redirigiendo a /perfil...");
       onClose();
+      navigate("/perfil");
     } catch (err) {
+      console.error("❌ Error en autenticación:", err);
       setFlashMessage({
         message: err?.message || "Error en el servidor",
         type: "error",
@@ -146,10 +137,11 @@ export default function AuthModal({
     }
   };
 
+  if (!isOpen) return null; // Evita renderizar si el modal no está abierto
+
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50 px-4">
       <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 relative animate-fadeIn">
-        {/* cerrar */}
         <button
           className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 text-lg"
           onClick={onClose}
@@ -182,51 +174,16 @@ export default function AuthModal({
           </div>
         )}
 
-        {/* Google login */}
-        <div className="flex justify-center mb-4">
-          <GoogleOAuthProvider clientId="TU_CLIENT_ID_GOOGLE">
-            <GoogleLogin
-              onSuccess={(credentialResponse) => {
-                console.log("Google login success:", credentialResponse);
-                setFlashMessage({
-                  message: "Inicio de sesión con Google exitoso",
-                  type: "success",
-                });
-                navigate("/perfil");
-                onClose();
-              }}
-              onError={() => {
-                setFlashMessage({
-                  message: "Error al iniciar con Google",
-                  type: "error",
-                });
-              }}
-              useOneTap
-              theme="filled_blue"
-              size="large"
-              shape="pill"
-              text="continue_with"
-            />
-          </GoogleOAuthProvider>
-        </div>
-
-        <div className="flex items-center my-3">
-          <div className="flex-grow h-px bg-gray-300"></div>
-          <span className="px-2 text-gray-400 text-xs">o con tu correo</span>
-          <div className="flex-grow h-px bg-gray-300"></div>
-        </div>
-
         <form onSubmit={handleSubmit} className="space-y-3">
           {!isLogin && (
             <div className="relative">
-              <FaUser className="absolute top-2.5 left-3 text-gray-400 text-sm" />
               <input
                 value={formData.username}
                 onChange={handleChange}
                 type="text"
                 name="username"
                 placeholder="Nombre de usuario"
-                className="w-full border pl-9 py-2.5 rounded-md text-sm focus:ring-2 focus:ring-purple-500"
+                className="w-full border pl-3 py-2.5 rounded-md text-sm focus:ring-2 focus:ring-purple-500"
               />
               {errors.username && (
                 <p className="text-xs text-red-600 mt-1">{errors.username}</p>
@@ -235,30 +192,27 @@ export default function AuthModal({
           )}
 
           <div className="relative">
-            <FaEnvelope className="absolute top-2.5 left-3 text-gray-400 text-sm" />
             <input
               value={formData.correo}
               onChange={handleChange}
               type="email"
               name="correo"
               placeholder="Correo electrónico"
-              className="w-full border pl-9 py-2.5 rounded-md text-sm focus:ring-2 focus:ring-purple-500"
+              className="w-full border pl-3 py-2.5 rounded-md text-sm focus:ring-2 focus:ring-purple-500"
             />
             {errors.correo && (
               <p className="text-xs text-red-600 mt-1">{errors.correo}</p>
             )}
           </div>
 
-          {/* Password con ojo */}
           <div className="relative">
-            <FaLock className="absolute top-2.5 left-3 text-gray-400 text-sm" />
             <input
               value={formData.password}
               onChange={handleChange}
               type={showPassword ? "text" : "password"}
               name="password"
               placeholder="Contraseña"
-              className="w-full border pl-9 pr-9 py-2.5 rounded-md text-sm focus:ring-2 focus:ring-purple-500"
+              className="w-full border pl-3 pr-9 py-2.5 rounded-md text-sm focus:ring-2 focus:ring-purple-500"
             />
             <button
               type="button"
@@ -274,14 +228,13 @@ export default function AuthModal({
 
           {!isLogin && (
             <div className="relative">
-              <FaLock className="absolute top-2.5 left-3 text-gray-400 text-sm" />
               <input
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 type="password"
                 name="confirmPassword"
                 placeholder="Confirmar contraseña"
-                className="w-full border pl-9 py-2.5 rounded-md text-sm focus:ring-2 focus:ring-purple-500"
+                className="w-full border pl-3 py-2.5 rounded-md text-sm focus:ring-2 focus:ring-purple-500"
               />
               {errors.confirmPassword && (
                 <p className="text-xs text-red-600 mt-1">

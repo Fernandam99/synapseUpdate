@@ -3,43 +3,51 @@ import ApiService from './api';
 export const tareasService = {
   async obtenerTareas(filtros = {}) {
     const params = new URLSearchParams(filtros).toString();
-    return await ApiService.get(`/tareas${params ? `?${params}` : ''}`);
+    const res = await ApiService.get(`/tarea${params ? `?${params}` : ''}`);
+    return res.data;
   },
 
   async crearTarea(tarea) {
-    return await ApiService.post('/tareas', tarea);
+    const res = await ApiService.post('/tarea', tarea);
+    return res.data;
   },
 
   async actualizarTarea(tareaId, datos) {
-    return await ApiService.put(`/tareas/${tareaId}`, datos);
+    const res = await ApiService.put(`/tarea/${tareaId}`, datos);
+    return res.data;
   },
 
   async eliminarTarea(tareaId) {
-    return await ApiService.delete(`/tareas/${tareaId}`);
+    const res = await ApiService.delete(`/tarea/${tareaId}`);
+    return res.data;
   },
 
   async completarTarea(tareaId) {
-    return await ApiService.patch(`/tareas/${tareaId}/completar`);
+    const res = await ApiService.patch(`/tarea/${tareaId}/completar`);
+    return res.data;
   },
 
   async completarTareaAnticipadamente(tareaId) {
-    return await ApiService.patch(`/listas/todo/tarea/${tareaId}/completar-anticipadamente`);
+    const res = await ApiService.patch(`/listas/todo/tarea/${tareaId}/completar-anticipadamente`);
+    return res.data;
   },
 
   async obtenerEstadisticas() {
-    return await ApiService.get('/tareas/estadisticas');
+    const res = await ApiService.get('/tarea/estadisticas');
+    return res.data;
   },
 
-  // TODO Lists
   async obtenerListas() {
-    return await ApiService.get('/listas/todo/listas');
+    const res = await ApiService.get('/listas/todo/listas');
+    return res.data;
   },
 
   async crearLista(nombre, descripcion, fechaLimite) {
-    return await ApiService.post('/listas/todo/lista', {
+    const res = await ApiService.post('/listas/todo/lista', {
       nombre,
       descripcion,
       fecha_limite: fechaLimite
     });
+    return res.data;
   }
 };

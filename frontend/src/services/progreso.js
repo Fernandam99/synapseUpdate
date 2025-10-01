@@ -2,26 +2,40 @@ import ApiService from './api';
 
 export const progresoService = {
   async obtenerProgresoHoy() {
-    return await ApiService.get('/progreso/hoy');
+    const res = await ApiService.get('/progreso/hoy');
+    return res.data;
   },
 
   async obtenerProgresoSemana() {
-    return await ApiService.get('/progreso/semana');
+    const res = await ApiService.get('/progreso/semana');
+    return res.data;
   },
 
   async obtenerProgresoMes(año = null, mes = null) {
     const params = new URLSearchParams();
     if (año) params.append('año', año);
     if (mes) params.append('mes', mes);
-    
-    return await ApiService.get(`/progreso/mes${params.toString() ? `?${params}` : ''}`);
+
+    const res = await ApiService.get(`/progreso/mes${params.toString() ? `?${params}` : ''}`);
+    return res.data;
   },
 
   async actualizarProgreso() {
-    return await ApiService.post('/progreso/actualizar');
+    const res = await ApiService.post('/progreso/actualizar');
+    return res.data;
   },
 
   async obtenerEstadisticasGenerales() {
-    return await ApiService.get('/progreso/estadisticas-generales');
+    const res = await ApiService.get('/progreso/estadisticas-generales');
+    return res.data;
+  },
+
+  async obtenerProgresoFiltrado(fechaInicio, fechaFin) {
+    const params = new URLSearchParams();
+    if (fechaInicio) params.append('fecha_inicio', fechaInicio);
+    if (fechaFin) params.append('fecha_fin', fechaFin);
+
+    const res = await ApiService.get(`/progreso${params.toString() ? `?${params}` : ''}`);
+    return res.data;
   }
 };
