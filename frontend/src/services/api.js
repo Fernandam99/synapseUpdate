@@ -1,64 +1,38 @@
-class ApiService {
-  constructor(baseURL = "http://localhost:5000/api") {
-    this.baseURL = baseURL;
-  }
+import axios from "axios";
 
-  async request(endpoint, options = {}) {
+const api = axios.create({
+  baseURL: "http://localhost:5000/api",
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// 🔹 Interceptor para añadir token automáticamente a cada request
+api.interceptors.request.use(
+  (config) => {
     const token = localStorage.getItem("token");
-
-    const config = {
-      headers: {
-        "Content-Type": "application/json",
-        ...(token && { Authorization: `Bearer ${token}` }), // añade token si existe
-      },
-      ...options,
-    };
-
-    try {
-      const response = await fetch(`${this.baseURL}${endpoint}`, config);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          `Error ${response.status}: ${errorData.message || response.statusText}`
-        );
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("API Request failed:", error);
-      throw error;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
-  }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
-  get(endpoint) {
-    return this.request(endpoint, { method: "GET" });
+// 🔹 Interceptor para manejar errores globalmente
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      console.error(
+        `API Error ${error.response.status}:`,
+        error.response.data.message || error.response.statusText
+      );
+    } else {
+      console.error("API Error:", error.message);
+    }
+    return Promise.reject(error);
   }
+);
 
-  post(endpoint, data) {
-    return this.request(endpoint, {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  }
-
-  put(endpoint, data) {
-    return this.request(endpoint, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    });
-  }
-
-  patch(endpoint, data) {
-    return this.request(endpoint, {
-      method: "PATCH",
-      body: JSON.stringify(data),
-    });
-  }
-
-  delete(endpoint) {
-    return this.request(endpoint, { method: "DELETE" });
-  }
-}
-
-export default new ApiService();
+export default api;

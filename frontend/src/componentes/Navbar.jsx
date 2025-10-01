@@ -1,58 +1,72 @@
-// src/componentes/Navbar.jsx
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Home, Target, CheckCircle, User, Users, Menu, X } from "lucide-react";
 import isotipo from "../static/IMG/isotipo.png";
 
 export default function Navbar({ user, onAuthClick, onLogout }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const navigate = useNavigate();
 
   const navItems = [
     { path: "/", label: "Home", icon: <Home size={18} />, requiresAuth: false },
     { path: "/pomodoro", label: "Pomodoro", icon: <Target size={18} />, requiresAuth: true },
     { path: "/meditacion", label: "Meditación", icon: <CheckCircle size={18} />, requiresAuth: true },
-    { path: "/sesiones", label: "Sesiones", icon: <Users size={18} />, requiresAuth: true },
     { path: "/perfil", label: "Perfil", icon: <User size={18} />, requiresAuth: true },
+    { path: "/concentracion", label: "Concentración", icon: <Users size={18} />, requiresAuth: true },
+    { path: "/tareas", label: "Tareas", icon: <CheckCircle size={18} />, requiresAuth: true },
+    { path: "/sesion", label: "Sesión Grupal", icon: <Users size={18} />, requiresAuth: true },
   ];
 
-  const handleNavClick = (item) => {
+  const handleClick = (e, item) => {
     if (item.requiresAuth && !user) {
+      e.preventDefault(); // bloquea navegación
       onAuthClick("login"); // abre modal
-    } else {
-      navigate(item.path); // navega normalmente
     }
-    setIsMenuOpen(false); // cerrar menú móvil si estaba abierto
+    setIsMenuOpen(false);
   };
 
   return (
     <nav className="fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-md border-b border-gray-200 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
-
           {/* LOGO */}
-          <div onClick={() => handleNavClick(navItems[0])} className="flex items-center space-x-2 cursor-pointer">
+          <Link to="/" className="flex items-center space-x-2 cursor-pointer">
             <img src={isotipo} alt="Logo" className="h-10 w-10 rounded-full object-contain" />
             <span className="text-xl font-bold bg-gradient-to-r from-purple-500 to-blue-600 bg-clip-text text-transparent">
               Synapse
             </span>
-          </div>
+          </Link>
 
-          {/* MENU DESKTOP */}
-          <div className="hidden md:flex space-x-6">
+          {/* MENU DESKTOP (lg) */}
+          <div className="hidden lg:flex space-x-6">
             {navItems.slice(1).map((item) => (
-              <button
+              <Link
                 key={item.path}
-                onClick={() => handleNavClick(item)}
+                to={item.path}
+                onClick={(e) => handleClick(e, item)}
                 className="flex items-center gap-1 text-gray-700 hover:text-purple-600 transition-colors"
               >
                 {item.icon}
                 {item.label}
-              </button>
+              </Link>
             ))}
           </div>
 
-          {/* BOTONES DERECHA (desktop) */}
+          {/* MENU TABLET (md-only) */}
+          <div className="hidden md:flex lg:hidden space-x-4">
+            {navItems.slice(1, 5).map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={(e) => handleClick(e, item)}
+                className="flex flex-col items-center text-sm text-gray-700 hover:text-purple-600 transition"
+              >
+                {item.icon}
+                <span className="text-xs">{item.label}</span>
+              </Link>
+            ))}
+          </div>
+
+          {/* BOTONES DERECHA (desktop/tablet) */}
           <div className="hidden md:flex items-center space-x-4">
             {!user ? (
               <>
@@ -71,12 +85,12 @@ export default function Navbar({ user, onAuthClick, onLogout }) {
               </>
             ) : (
               <div className="flex items-center gap-4">
-                <button
-                  onClick={() => handleNavClick({ path: "/perfil", requiresAuth: true })}
+                <Link
+                  to="/perfil"
                   className="flex items-center gap-1 text-gray-700 hover:text-blue-600"
                 >
                   <User size={18} /> Mi Cuenta
-                </button>
+                </Link>
                 <button
                   onClick={onLogout}
                   className="px-4 py-2 rounded-md bg-gradient-to-r from-red-500 to-pink-600 text-white hover:from-red-600 hover:to-pink-700 transition"
@@ -87,7 +101,7 @@ export default function Navbar({ user, onAuthClick, onLogout }) {
             )}
           </div>
 
-          {/* BOTÓN HAMBURGUESA (móvil) */}
+          {/* BOTÓN HAMBURGUESA (solo móvil) */}
           <div className="md:hidden">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -103,26 +117,33 @@ export default function Navbar({ user, onAuthClick, onLogout }) {
       {isMenuOpen && (
         <div className="md:hidden bg-white border-t border-gray-200 px-4 py-6 space-y-4">
           {navItems.map((item) => (
-            <button
+            <Link
               key={item.path}
-              onClick={() => handleNavClick(item)}
+              to={item.path}
+              onClick={(e) => handleClick(e, item)}
               className="flex items-center gap-2 text-gray-700 hover:text-purple-600 transition w-full text-left"
             >
               {item.icon} {item.label}
-            </button>
+            </Link>
           ))}
 
           <div className="pt-4 border-t border-gray-200 space-y-3">
             {!user ? (
               <>
                 <button
-                  onClick={() => { setIsMenuOpen(false); onAuthClick("login"); }}
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    onAuthClick("login");
+                  }}
                   className="w-full px-4 py-2 rounded-md text-gray-700 border border-gray-300 hover:bg-gray-100 transition"
                 >
                   Iniciar Sesión
                 </button>
                 <button
-                  onClick={() => { setIsMenuOpen(false); onAuthClick("register"); }}
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    onAuthClick("register");
+                  }}
                   className="w-full px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 transition"
                 >
                   Registrarse
@@ -130,14 +151,18 @@ export default function Navbar({ user, onAuthClick, onLogout }) {
               </>
             ) : (
               <>
-                <button
-                  onClick={() => handleNavClick({ path: "/perfil", requiresAuth: true })}
+                <Link
+                  to="/perfil"
+                  onClick={() => setIsMenuOpen(false)}
                   className="flex items-center gap-2 text-gray-700 hover:text-blue-600 transition w-full text-left"
                 >
                   <User size={18} /> Mi Cuenta
-                </button>
+                </Link>
                 <button
-                  onClick={() => { setIsMenuOpen(false); onLogout(); }}
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    onLogout();
+                  }}
                   className="w-full px-4 py-2 rounded-md bg-gradient-to-r from-red-500 to-pink-600 text-white hover:from-red-600 hover:to-pink-700 transition"
                 >
                   Salir

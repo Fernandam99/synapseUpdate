@@ -3,18 +3,18 @@ from flask_migrate import Migrate
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager  
 
-from models import db
-from config import Config
+from app.models import db
+from app.config import Config
 
 # Importación rutas
-from routes.auth import auth_bp
-from routes.progreso_routes import progreso_bp
-from routes.recompensa_routes import recompensa_bp
-from routes.sala_routes import sala_bp
-from routes.sesion_routes import sesion_bp
-from routes.tarea_routes import tarea_bp
-from routes.tecnica_routes import tecnica_bp
-from routes.usuario_routes import usuario_bp
+from app.routes.auth import auth_bp
+from app.routes.progreso_routes import progreso_bp
+from app.routes.recompensa_routes import recompensa_bp
+from app.routes.sala_routes import sala_bp
+from app.routes.sesion_routes import sesion_bp
+from app.routes.tarea_routes import tarea_bp
+from app.routes.tecnica_routes import tecnica_bp
+from app.routes.usuario_routes import usuario_bp
 
 def create_app():
     app = Flask(__name__)

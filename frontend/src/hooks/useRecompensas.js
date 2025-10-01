@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { recompensasService } from '../services/recompensas';
-import { useAuth } from './useAuth';
+import { useAuth } from '../contexto/AuthContext';
+
 
 export const useRecompensas = () => {
   const { user } = useAuth();

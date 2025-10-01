@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { Route, Routes, useNavigate, useLocation, Navigate } from "react-router-dom";
 
 // Contexto
 import { useAuth } from "./contexto/AuthContext";
@@ -8,6 +8,7 @@ import { useAuth } from "./contexto/AuthContext";
 import AuthModal from "./componentes/AuthModal.jsx";
 import Footer from "./componentes/Footer.jsx";
 import Navbar from "./componentes/Navbar.jsx";
+import PrivateRoute from "./componentes/PrivateRoute.jsx";
 
 // Páginas
 import ConcentracionPage from "./paginas/ConcentracionPage.jsx";
@@ -23,16 +24,27 @@ export default function SynapseApp() {
   const { user, loading, login, register, logout } = useAuth();
   const [authModal, setAuthModal] = useState({ open: false, mode: "login" });
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Redirigir al perfil cuando hay login exitoso
+  // DEBUG: muestra en consola para verificar que user cambia como esperas
+  // (borra/acomoda luego)
+  // eslint-disable-next-line no-console
+  console.log("SynapseApp -> user:", user, "location:", location.pathname);
+
+  // Redirigir al perfil solo si está en "/"
   useEffect(() => {
-    if (user) {
+    if (user && location.pathname === "/") {
       navigate("/perfil");
     }
-  }, [user, navigate]);
+  }, [user, location.pathname, navigate]);
 
-  const onAuthClick = (mode = "login") => setAuthModal({ open: true, mode });
-  const closeAuthModal = () => setAuthModal({ open: false, mode: "login" });
+  const onAuthClick = (mode = "login") => {
+    setAuthModal({ open: true, mode });
+  };
+
+  const closeAuthModal = () => {
+    setAuthModal({ open: false, mode: "login" });
+  };
 
   if (loading) {
     return (
@@ -51,20 +63,78 @@ export default function SynapseApp() {
 
       <main className="flex-1">
         <Routes>
-          <Route path="/" element={<HomePage user={user} onAuthClick={onAuthClick} />} />
-          <Route path="/pomodoro" element={user ? <PomodoroPage /> : <Navigate to="/" replace />} />
-          <Route path="/concentracion" element={user ? <ConcentracionPage /> : <Navigate to="/" replace />} />
-          <Route path="/tareas" element={user ? <TareasPage /> : <Navigate to="/" replace />} />
-          <Route path="/recompensas" element={user ? <RecompensasPage /> : <Navigate to="/" replace />} />
-          <Route path="/meditacion" element={user ? <MeditacionPage /> : <Navigate to="/" replace />} />
-          <Route path="/perfil" element={user ? <PerfilPage /> : <Navigate to="/" replace />} />
-          <Route path="/sesion" element={user ? <SesionGrupalPage /> : <Navigate to="/" replace />} />
+          {/* Ruta pública */}
+          <Route
+            path="/"
+            element={<HomePage user={user} onAuthClick={onAuthClick} />}
+          />
+
+          {/* Rutas protegidas con PrivateRoute */}
+          <Route
+            path="/pomodoro"
+            element={
+              <PrivateRoute user={user}>
+                <PomodoroPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/concentracion"
+            element={
+              <PrivateRoute user={user}>
+                <ConcentracionPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/tareas"
+            element={
+              <PrivateRoute user={user}>
+                <TareasPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/recompensas"
+            element={
+              <PrivateRoute user={user}>
+                <RecompensasPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/meditacion"
+            element={
+              <PrivateRoute user={user}>
+                <MeditacionPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/perfil"
+            element={
+              <PrivateRoute user={user}>
+                <PerfilPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/sesion"
+            element={
+              <PrivateRoute user={user}>
+                <SesionGrupalPage />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Ruta no encontrada */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
 
       <Footer />
 
+      {/* Modal de autenticación */}
       <AuthModal
         isOpen={authModal.open}
         defaultMode={authModal.mode}
